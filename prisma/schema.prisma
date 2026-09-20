@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  nome      String
+  email     String     @unique
+  senha     String
+  funcao    String     @default("COLABORADOR")
+  createdAt DateTime   @default(now())
+  progress  Progress[]
+}
+
+model Course {
+  id         Int        @id @default(autoincrement())
+  titulo     String
+  descricao  String
+  conteudo   String
+  duracaoMin Int        @default(30)
+  createdAt  DateTime   @default(now())
+  progress   Progress[]
+}
+
+model Progress {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  courseId   Int
+  nota       Float?
+  percentual Float    @default(0)
+  status     String   @default("EM_ANDAMENTO")
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}

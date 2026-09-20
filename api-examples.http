@@ -1,0 +1,41 @@
+### Health
+GET http://localhost:3000/api/health
+
+### Login gestor
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "gestor@posto.com",
+  "senha": "123456"
+}
+
+### Cadastro colaborador
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "nome": "João da Silva",
+  "email": "joao@email.com",
+  "senha": "123456",
+  "funcao": "COLABORADOR"
+}
+
+### Cursos
+GET http://localhost:3000/api/courses
+Authorization: Bearer SEU_TOKEN
+
+### Salvar progresso
+POST http://localhost:3000/api/progress
+Authorization: Bearer SEU_TOKEN
+Content-Type: application/json
+
+{
+  "courseId": 1,
+  "nota": 9,
+  "percentual": 100
+}
+
+### Meu progresso
+GET http://localhost:3000/api/progress/me
+Authorization: Bearer SEU_TOKEN
