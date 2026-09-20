@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rego Treina — Plataforma de Treinamento</title>
+  <meta name="description" content="Plataforma de capacitação para frentistas e operadores de caixa do Auto Posto Rego & CIA.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">R</div>
+        <div>
+          <strong>Rego Treina</strong>
+          <span>Capacitação corporativa</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="inicio"><span>⌂</span> Início</button>
+        <button class="nav-item" data-page="treinamentos"><span>▣</span> Treinamentos</button>
+        <button class="nav-item" data-page="progresso"><span>◔</span> Meu progresso</button>
+        <button class="nav-item" data-page="avaliacoes"><span>✓</span> Avaliações</button>
+        <button class="nav-item" data-page="ajuda"><span>?</span> Ajuda</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="mini-profile">
+          <div class="avatar">RC</div>
+          <div><strong>Rafael Chen</strong><span>Frentista</span></div>
+        </div>
+        <button class="logout" id="logoutBtn">↪ Sair</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-btn" id="menuBtn">☰</button>
+        <div class="breadcrumb">Plataforma / <strong id="pageTitle">Início</strong></div>
+        <div class="top-actions">
+          <button class="icon-btn" title="Notificações" id="notificationBtn">♢<i></i></button>
+          <div class="profile-chip">
+            <div class="avatar small">RC</div>
+            <span>Rafael</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
