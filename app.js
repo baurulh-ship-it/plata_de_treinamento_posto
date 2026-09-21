@@ -1,150 +1,39 @@
-const state = {
-  progress: Number(localStorage.getItem("regoProgress") || 68),
-  completed: JSON.parse(localStorage.getItem("regoCompleted") || "[]")
-};
-
-const modules = [
-  {id:"seguranca", icon:"!", title:"Segurança e prevenção", desc:"Procedimentos básicos para uma operação segura no posto.", duration:"12 min", progress:100, status:"Concluído"},
-  {id:"atendimento", icon:"♡", title:"Atendimento ao cliente", desc:"Boas práticas para oferecer um atendimento rápido e padronizado.", duration:"18 min", progress:72, status:"Em andamento"},
-  {id:"bombas", icon:"⛽", title:"Operação das bombas", desc:"Conheça a rotina de abastecimento e os cuidados durante a operação.", duration:"15 min", progress:40, status:"Em andamento"},
-  {id:"caixa", icon:"$", title:"Operação de caixa", desc:"Fluxo de pagamentos, conferência e encerramento do atendimento.", duration:"20 min", progress:0, status:"Não iniciado"}
-];
-
-const pageNames = {inicio:"Início", treinamentos:"Treinamentos", progresso:"Meu progresso", avaliacoes:"Avaliações", ajuda:"Ajuda"};
-
-const content = document.getElementById("content");
-const pageTitle = document.getElementById("pageTitle");
-const toast = document.getElementById("toast");
-
-function save() {
-  localStorage.setItem("regoProgress", state.progress);
-  localStorage.setItem("regoCompleted", JSON.stringify(state.completed));
-}
-function notify(message) {
-  toast.textContent = message;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2600);
-}
-function progressBar(value) {
-  return `<div class="progress"><div style="width:${value}%"></div></div>`;
-}
-
-function home() {
-  content.innerHTML = `
-    <section class="hero">
-      <div>
-        <div class="eyebrow">Auto Posto Rego & CIA • Pederneiras</div>
-        <h1>Olá, Rafael! 👋</h1>
-        <p>Continue sua capacitação e aprenda as rotinas do posto de forma simples, organizada e no seu ritmo.</p>
-        <div style="margin-top:20px"><button class="btn btn-primary" onclick="openCourse('atendimento')">Continuar treinamento →</button></div>
-      </div>
-      <div class="hero-art"><div class="pump"></div></div>
-    </section>
-
-    <div class="stats">
-      <div class="card stat"><div><div class="stat-label">Progresso geral</div><div class="stat-value">${state.progress}%</div></div><div class="stat-icon">◔</div></div>
-      <div class="card stat"><div><div class="stat-label">Módulos concluídos</div><div class="stat-value">${state.completed.length || 1}/4</div></div><div class="stat-icon">✓</div></div>
-      <div class="card stat"><div><div class="stat-label">Tempo de estudo</div><div class="stat-value">1h 12m</div></div><div class="stat-icon">◷</div></div>
-      <div class="card stat"><div><div class="stat-label">Avaliações</div><div class="stat-value">2/3</div></div><div class="stat-icon">★</div></div>
-    </div>
-
-    <div class="section-head"><h2>Continue aprendendo</h2><span>4 módulos disponíveis</span></div>
-    <div class="grid">
-      <div class="modules">${modules.slice(0,4).map(m=>moduleCard(m)).join("")}</div>
-      <div class="card side-card">
-        <h3>Seu desempenho</h3>
-        <div class="donut"></div>
-        <div class="legend">
-          <span><b>Concluído</b><strong>68%</strong></span>
-          <span><b>Em andamento</b><strong>22%</strong></span>
-          <span><b>Pendente</b><strong>10%</strong></span>
-        </div>
-        <button class="btn btn-light" style="width:100%;margin-top:17px" onclick="navigate('progresso')">Ver relatório completo</button>
-      </div>
-    </div>
-  `;
-}
-function moduleCard(m) {
-  return `<article class="card module" onclick="openCourse('${m.id}')">
-    <div class="module-top"><div class="module-icon">${m.icon}</div><span class="tag">${m.status}</span></div>
-    <h3>${m.title}</h3><p>${m.desc}</p>${progressBar(m.progress)}
-    <div class="progress-row"><span>${m.duration}</span><b>${m.progress}%</b></div>
-  </article>`;
-}
-function trainings() {
-  content.innerHTML = `<div class="page-title"><h1>Treinamentos</h1><p>Aprenda as principais rotinas do posto por módulos curtos e interativos.</p></div>
-  <div class="course-grid">${modules.map(m=>`<div class="card course"><div class="cover">${m.icon}</div><h3>${m.title}</h3><p>${m.desc}</p><div class="meta"><span>${m.duration}</span><b>${m.progress}%</b></div>${progressBar(m.progress)}<button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="openCourse('${m.id}')">${m.progress===100?'Revisar módulo':'Acessar módulo'}</button></div>`).join("")}</div>`;
-}
-function progressPage() {
-  content.innerHTML = `<div class="page-title"><h1>Meu progresso</h1><p>Acompanhe sua evolução e veja quais conteúdos precisam de atenção.</p></div>
-  <div class="grid"><div class="card table-card"><h3 style="margin:0 0 12px">Progresso por módulo</h3>
-  <table><thead><tr><th>Módulo</th><th>Progresso</th><th>Status</th></tr></thead><tbody>
-  ${modules.map(m=>`<tr><td><strong>${m.title}</strong></td><td style="min-width:170px">${progressBar(m.progress)}<small style="color:var(--muted)">${m.progress}%</small></td><td><span class="status ${m.progress===100?'done':'pending'}">${m.status}</span></td></tr>`).join("")}
-  </tbody></table></div>
-  <div class="card side-card"><h3>Resumo</h3><div class="donut"></div><p style="font-size:11px;color:var(--muted);line-height:1.6;text-align:center">Seu progresso é salvo automaticamente neste dispositivo. Na versão com backend, esses dados poderão ser sincronizados pela API.</p></div></div>`;
-}
-function evaluations() {
-  content.innerHTML = `<div class="page-title"><h1>Avaliações</h1><p>Teste seus conhecimentos e acompanhe seu desempenho.</p></div>
-  <div class="card table-card"><table><thead><tr><th>Avaliação</th><th>Questões</th><th>Nota</th><th>Status</th><th></th></tr></thead><tbody>
-  <tr><td><strong>Segurança e prevenção</strong></td><td>10</td><td>9,0</td><td><span class="status done">Concluída</span></td><td><button class="btn btn-light" onclick="openQuiz()">Refazer</button></td></tr>
-  <tr><td><strong>Atendimento ao cliente</strong></td><td>8</td><td>—</td><td><span class="status pending">Pendente</span></td><td><button class="btn btn-primary" onclick="openQuiz()">Iniciar</button></td></tr>
-  </tbody></table></div>`;
-}
-function help() {
-  content.innerHTML = `<div class="page-title"><h1>Central de ajuda</h1><p>Encontre orientações rápidas para usar a plataforma.</p></div>
-  <div class="grid"><div class="card side-card"><h3>Como funciona?</h3><div class="list">
-  <div class="list-item"><div class="bullet">1</div><div><strong>Escolha um módulo</strong><small>Acesse um dos treinamentos disponíveis.</small></div></div>
-  <div class="list-item"><div class="bullet">2</div><div><strong>Estude o conteúdo</strong><small>Leia as instruções e avance pelo material.</small></div></div>
-  <div class="list-item"><div class="bullet">3</div><div><strong>Faça a avaliação</strong><small>Responda ao questionário para fixar o conteúdo.</small></div></div>
-  <div class="list-item"><div class="bullet">4</div><div><strong>Acompanhe seu progresso</strong><small>Seu percentual é atualizado automaticamente.</small></div></div>
-  </div></div>
-  <div class="card side-card"><h3>Precisa de suporte?</h3><p style="font-size:12px;line-height:1.6;color:var(--muted)">Em uma versão integrada ao backend, este espaço pode receber abertura de chamados e contato com gestores.</p><button class="btn btn-primary" onclick="notify('Solicitação de suporte registrada!')">Solicitar suporte</button></div></div>`;
-}
-
-function navigate(page) {
-  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
-  pageTitle.textContent = pageNames[page];
-  ({inicio:home, treinamentos:trainings, progresso:progressPage, avaliacoes:evaluations, ajuda:help}[page] || home)();
-  document.getElementById("sidebar").classList.remove("open");
-}
-document.querySelectorAll(".nav-item").forEach(btn=>btn.addEventListener("click",()=>navigate(btn.dataset.page)));
-
-function openCourse(id) {
-  const m = modules.find(x=>x.id===id);
-  const overlay = document.createElement("div");
-  overlay.className="modal-backdrop show";
-  overlay.id="courseModal";
-  overlay.innerHTML=`<div class="modal">
-    <div class="modal-head"><div><div class="eyebrow" style="color:var(--primary)">MÓDULO DE TREINAMENTO</div><h2 style="margin:6px 0;font-size:20px">${m.title}</h2></div><button class="close" onclick="document.getElementById('courseModal').remove()">×</button></div>
-    <p style="font-size:12px;line-height:1.7;color:var(--muted)">Este protótipo demonstra o fluxo de aprendizagem. O conteúdo pode ser substituído pelos materiais oficiais do posto e posteriormente carregado pela API REST.</p>
-    <div class="card" style="padding:15px;margin:16px 0;background:#f7faff"><strong style="font-size:12px">Conteúdo da aula</strong><p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:0">1. Introdução à rotina<br>2. Procedimentos passo a passo<br>3. Cuidados e boas práticas<br>4. Checklist de conclusão</p></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-light" onclick="document.getElementById('courseModal').remove()">Fechar</button><button class="btn btn-primary" onclick="completeModule('${id}')">Marcar como concluído</button></div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-function completeModule(id) {
-  if(!state.completed.includes(id)) state.completed.push(id);
-  const m=modules.find(x=>x.id===id); m.progress=100; m.status="Concluído";
-  state.progress=Math.min(100, Math.round(modules.reduce((a,x)=>a+x.progress,0)/modules.length));
-  save(); document.getElementById("courseModal").remove(); notify("Módulo concluído! Seu progresso foi atualizado."); home();
-}
-function openQuiz() {
-  const overlay=document.createElement("div"); overlay.className="modal-backdrop show"; overlay.id="quizModal";
-  overlay.innerHTML=`<div class="modal"><div class="modal-head"><div><div class="eyebrow" style="color:var(--primary)">AVALIAÇÃO</div><h2 style="margin:6px 0;font-size:20px">Atendimento ao cliente</h2></div><button class="close" onclick="document.getElementById('quizModal').remove()">×</button></div>
-  <p style="font-size:12px;color:var(--muted)">Qual atitude melhor contribui para um atendimento padronizado?</p>
-  <button class="quiz-option" onclick="answer(this,false)">Ignorar a solicitação para agilizar a fila.</button>
-  <button class="quiz-option" onclick="answer(this,true)">Ouvir o cliente, seguir o procedimento e confirmar a solicitação.</button>
-  <button class="quiz-option" onclick="answer(this,false)">Fazer o atendimento sem conferir as informações.</button>
-  <div id="quizResult" style="margin-top:15px;font-size:12px;font-weight:700"></div></div>`;
-  document.body.appendChild(overlay);
-}
-function answer(el, correct) {
-  document.querySelectorAll(".quiz-option").forEach(b=>b.disabled=true);
-  el.classList.add(correct?"correct":"wrong");
-  document.getElementById("quizResult").textContent=correct?"Resposta correta! Muito bem.":"Resposta incorreta. Revise o módulo e tente novamente.";
-  if(correct) notify("Avaliação concluída com sucesso!");
-}
-document.getElementById("menuBtn").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
-document.getElementById("notificationBtn").addEventListener("click",()=>notify("Você não possui novas notificações."));
-document.getElementById("logoutBtn").addEventListener("click",()=>notify("Sessão encerrada (simulação)."));
-navigate("inicio");
+const KEY = 'regoTraining.v2';
+let state = {lessons:{},scores:{}};
+try { const saved=JSON.parse(localStorage.getItem(KEY)); if(saved && typeof saved.lessons==='object' && saved.lessons && typeof saved.scores==='object' && saved.scores) state=saved; } catch {}
+let currentPage='inicio', quiz=null, toastTimer;
+const content=document.getElementById('content');
+const names={inicio:'Início',treinamentos:'Treinamentos',progresso:'Meu progresso',avaliacoes:'Avaliações',ajuda:'Ajuda'};
+function readCount(m){return Math.min(m.lessons.length,Math.max(0,Number(state.lessons[m.id])||0));}
+function passed(m){return Number.isFinite(state.scores[m.id]) && state.scores[m.id]>=70;}
+function percent(m){return Math.round((readCount(m)+(passed(m)?1:0))/(m.lessons.length+1)*100);}
+function overall(){return Math.round(modules.reduce((sum,m)=>sum+percent(m),0)/modules.length);}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch{notify('Não foi possível salvar neste navegador. Mantenha esta página aberta.');}}
+function notify(message){clearTimeout(toastTimer);const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');toastTimer=setTimeout(()=>el.classList.remove('show'),4000);}
+function bar(value){return `<div class="progress" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"><div style="width:${value}%"></div></div>`;}
+function status(m){return percent(m)===100?'Concluído':percent(m)>0?'Em andamento':'Não iniciado';}
+function card(m,i){return `<article class="card module"><div class="module-top"><div class="module-icon">${m.icon}</div><span class="tag ${percent(m)===100?'done':''}">${status(m)}</span></div><small class="module-number">MÓDULO 0${i+1}</small><h3>${m.title}</h3><p>${m.desc}</p>${bar(percent(m))}<div class="progress-row"><span>${m.duration} min · ${m.lessons.length} aulas</span><b>${percent(m)}%</b></div><button class="btn btn-light course-action" onclick="openCourse('${m.id}')">${percent(m)===100?'Revisar módulo':'Acessar treinamento'} →</button></article>`;}
+function home(){const next=modules.find(m=>percent(m)<100)||modules[0];content.innerHTML=`<div class="section-head intro"><span>SUA JORNADA DE APRENDIZAGEM</span><span class="demo-label">Ambiente de demonstração</span></div><section class="hero"><div><div class="eyebrow">AUTO POSTO REGO & CIA</div><h1>Um bom atendimento<br>começa com preparo.</h1><p>Aprenda as rotinas do posto, pratique seus conhecimentos e acompanhe cada conquista.</p><button class="btn btn-primary hero-cta" onclick="openCourse('${next.id}')">${overall()?'Continuar aprendendo':'Começar minha jornada'} →</button></div><div class="hero-art" aria-hidden="true"><div class="pump"></div><span>PREPARO QUE FAZ<br>A DIFERENÇA.</span></div></section><div class="stats">${[['Progresso geral',overall()+'%','◔'],['Módulos concluídos',modules.filter(m=>percent(m)===100).length+'/4','✓'],['Conteúdo disponível','65 min','◷'],['Avaliações aprovadas',modules.filter(passed).length+'/4','★']].map(([label,value,icon])=>`<div class="card stat"><div><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div><div class="stat-icon">${icon}</div></div>`).join('')}</div><div class="section-head"><h2>Sua trilha de capacitação</h2><span>Do primeiro contato ao fechamento</span></div><div class="grid"><div class="modules">${modules.map(card).join('')}</div><aside class="card side-card"><span class="eyebrow">UM PASSO DE CADA VEZ</span><h3>Seu próximo objetivo</h3><div class="donut" style="--value:${overall()}%"><span>${overall()}%<small>da trilha</small></span></div><p>Leia as três aulas de cada módulo e alcance pelo menos 70% na avaliação para concluir.</p><div class="next-step"><strong>${next.title}</strong><p>${readCount(next)} de 3 aulas lidas</p></div><button class="btn btn-light course-action" onclick="navigate('progresso')">Acompanhar meu progresso →</button></aside></div>`;}
+function trainings(){content.innerHTML=heading('Treinamentos','Quatro módulos para desenvolver sua rotina profissional.')+`<div class="course-grid">${modules.map(card).join('')}</div>`;}
+function heading(title,desc){return `<div class="page-title"><div class="eyebrow">REGO TREINA</div><h1>${title}</h1><p>${desc}</p></div>`;}
+function progressPage(){content.innerHTML=heading('Meu progresso','Cada etapa concluída conta. Seu avanço fica salvo neste navegador.')+`<div class="card table-card"><table><thead><tr><th>Módulo</th><th>Aulas lidas</th><th>Progresso</th><th>Melhor nota</th><th>Status</th></tr></thead><tbody>${modules.map(m=>`<tr><td>${m.title}</td><td>${readCount(m)}/3</td><td>${bar(percent(m))}${percent(m)}%</td><td>${Number.isFinite(state.scores[m.id])?state.scores[m.id]+'%':'—'}</td><td>${status(m)}</td></tr>`).join('')}</tbody></table></div><p class="footnote">As notas são de atividades introdutórias e não constituem certificação profissional.</p><button class="btn btn-primary" onclick="window.print()">Imprimir relatório</button>`;}
+function evaluations(){content.innerHTML=heading('Avaliações','Responda às três questões de cada módulo. Aprovação a partir de 70%.')+`<div class="course-grid">${modules.map(m=>`<article class="card module"><div class="module-icon">${m.icon}</div><h3>${m.title}</h3><p>${Number.isFinite(state.scores[m.id])?'Melhor resultado: '+state.scores[m.id]+'%':'Você ainda não fez esta avaliação.'}</p><button class="btn btn-primary" onclick="openQuiz('${m.id}')">${Number.isFinite(state.scores[m.id])?'Tentar novamente':'Iniciar avaliação'} →</button></article>`).join('')}</div>`;}
+function help(){content.innerHTML=heading('Como podemos ajudar?','Orientações para aproveitar sua jornada de aprendizagem.')+`<div class="help-grid">${[['Como concluo um módulo?','Leia as três aulas e obtenha pelo menos 70% na avaliação. Você pode refazer a avaliação; sua melhor nota fica salva.'],['Onde meu progresso fica salvo?','Neste navegador e dispositivo. Limpar os dados do navegador remove o histórico. Esta demonstração não sincroniza os resultados entre computadores.'],['Posso usar este conteúdo na operação?','O material é uma introdução. Os procedimentos precisam ser validados pelo responsável do posto e acompanhados pela capacitação exigida para cada atividade.'],['Preciso de ajuda com a rotina do posto','Procure o responsável pelo seu turno. Apresente sua dúvida e o módulo relacionado para receber orientação.']].map(([q,a])=>`<details class="card"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`;}
+function navigate(page){currentPage=names[page]?page:'inicio';document.getElementById('pageTitle').textContent=names[currentPage];document.querySelectorAll('.nav-item').forEach(b=>{b.classList.toggle('active',b.dataset.page===currentPage);b.setAttribute('aria-current',b.dataset.page===currentPage?'page':'false');});({inicio:home,treinamentos:trainings,progresso:progressPage,avaliacoes:evaluations,ajuda:help}[currentPage])();closeMenu();}
+function closeMenu(){document.getElementById('sidebar').classList.remove('open');document.getElementById('menuBtn').setAttribute('aria-expanded','false');document.getElementById('menuBackdrop').hidden=true;}
+let returnFocus;
+function showModal(html){const old=document.getElementById('learningDialog');if(old)old.remove();else returnFocus=document.activeElement;const dialog=document.createElement('dialog');dialog.id='learningDialog';dialog.className='modal';dialog.setAttribute('aria-labelledby','dialogTitle');dialog.innerHTML=`<button class="close" aria-label="Fechar" onclick="closeModal()">×</button>${html}`;document.body.appendChild(dialog);dialog.addEventListener('close',()=>{dialog.remove();returnFocus?.focus();});dialog.showModal();}
+function closeModal(){document.getElementById('learningDialog')?.close();}
+function openCourse(id,index){const m=modules.find(m=>m.id===id);const step=index??Math.min(readCount(m),m.lessons.length-1);const lesson=m.lessons[step];showModal(`<div class="eyebrow">${m.title} · AULA ${step+1} DE 3</div><h2 id="dialogTitle">${lesson[0]}</h2>${bar(Math.round((step+1)/3*100))}<p class="lesson-copy">${lesson[1]}</p><div class="lesson-tip">Ao final, teste o que aprendeu na avaliação deste módulo.</div><div class="modal-actions"><button class="btn btn-light" ${step===0?'disabled':''} onclick="openCourse('${id}',${step-1})">← Anterior</button><button class="btn btn-primary" onclick="advanceLesson('${id}',${step})">${step===2?'Concluir leitura e avaliar':'Marcar como lida e avançar'} →</button></div>`);}
+function advanceLesson(id,step){state.lessons[id]=Math.max(Number(state.lessons[id])||0,step+1);save();navigate(currentPage);if(step<2)openCourse(id,step+1);else openQuiz(id);}
+function openQuiz(id){quiz={id,index:0,correct:0};renderQuestion();}
+function renderQuestion(){const m=modules.find(m=>m.id===quiz.id),q=m.quiz[quiz.index];showModal(`<div class="eyebrow">${m.title} · QUESTÃO ${quiz.index+1} DE ${m.quiz.length}</div><h2 id="dialogTitle">${q[0]}</h2><div class="answers">${q[1].map((a,i)=>`<button class="quiz-option" onclick="answer(${i})">${a}</button>`).join('')}</div><div id="quizResult" role="status"></div><div id="quizNext"></div>`);}
+function answer(choice){const m=modules.find(m=>m.id===quiz.id),q=m.quiz[quiz.index];document.querySelectorAll('.quiz-option').forEach((b,i)=>{b.disabled=true;if(i===q[2])b.classList.add('correct');else if(i===choice)b.classList.add('wrong');});if(choice===q[2])quiz.correct++;document.getElementById('quizResult').textContent=(choice===q[2]?'Resposta correta. ':'Vamos revisar. ')+q[3];document.getElementById('quizNext').innerHTML=`<button class="btn btn-primary" onclick="nextQuestion()">${quiz.index===m.quiz.length-1?'Ver resultado':'Próxima questão'} →</button>`;}
+function nextQuestion(){const m=modules.find(m=>m.id===quiz.id);if(++quiz.index<m.quiz.length)return renderQuestion();const score=Math.round(quiz.correct/m.quiz.length*100);state.scores[m.id]=Math.max(state.scores[m.id]||0,score);save();navigate(currentPage);showModal(`<div class="eyebrow">AVALIAÇÃO FINALIZADA</div><h2 id="dialogTitle">${score>=70?'Muito bem!':'Continue praticando.'}</h2><div class="result-score">${score}%</div><p>Você acertou ${quiz.correct} de ${m.quiz.length} questões.</p><p>${score>=70?(readCount(m)===3?'Módulo concluído!':'Avaliação aprovada. Leia todas as aulas para concluir o módulo.'):'Revise o conteúdo e tente novamente. Sua melhor nota será mantida.'}</p><div class="modal-actions"><button class="btn btn-light" onclick="openCourse('${m.id}',0)">Revisar aulas</button><button class="btn btn-primary" onclick="closeModal()">Voltar à plataforma</button></div>`);}
+document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));
+document.getElementById('menuBtn').addEventListener('click',()=>{const open=document.getElementById('sidebar').classList.toggle('open');document.getElementById('menuBtn').setAttribute('aria-expanded',String(open));document.getElementById('menuBackdrop').hidden=!open;});
+document.getElementById('menuBackdrop').addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+document.getElementById('notificationBtn').addEventListener('click',()=>notify(modules.filter(m=>percent(m)<100).length+' módulos aguardam sua conclusão.'));
+document.getElementById('logoutBtn').addEventListener('click',()=>showModal(`<h2 id="dialogTitle">Recomeçar demonstração?</h2><p>Isso apaga somente as aulas e notas salvas nesta demonstração, neste navegador.</p><div class="modal-actions"><button class="btn btn-light" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="state={lessons:{},scores:{}};save();closeModal();navigate('inicio')">Apagar e recomeçar</button></div>`));
+navigate('inicio');

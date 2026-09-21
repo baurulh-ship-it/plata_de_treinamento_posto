@@ -31,22 +31,22 @@
 
       <div class="sidebar-footer">
         <div class="mini-profile">
-          <div class="avatar">RC</div>
-          <div><strong>Rafael Chen</strong><span>Frentista</span></div>
+          <div class="avatar">V</div>
+          <div><strong>Visitante</strong><span>Perfil de demonstração</span></div>
         </div>
-        <button class="logout" id="logoutBtn">↪ Sair</button>
+        <button class="logout" id="logoutBtn">↻ Recomeçar demonstração</button>
       </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <button class="menu-btn" id="menuBtn">☰</button>
+        <button class="menu-btn" id="menuBtn" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">☰</button>
         <div class="breadcrumb">Plataforma / <strong id="pageTitle">Início</strong></div>
         <div class="top-actions">
           <button class="icon-btn" title="Notificações" id="notificationBtn">♢<i></i></button>
           <div class="profile-chip">
-            <div class="avatar small">RC</div>
-            <span>Rafael</span>
+            <div class="avatar small">V</div>
+            <span>Visitante</span>
           </div>
         </div>
       </header>
@@ -55,8 +55,8 @@
     </main>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="app.js"></script>
+  <button id="menuBackdrop" class="menu-backdrop" aria-label="Fechar menu" hidden></button><script src="courses.js"></script><script src="app.js"></script>
 </body>
 </html>
