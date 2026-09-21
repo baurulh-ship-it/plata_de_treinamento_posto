@@ -1,0 +1,8 @@
+node_modules/
+.env
+*.log
+prisma/*.db-journal
+work/
+
+prisma/training.db*
+prisma/test*.db*

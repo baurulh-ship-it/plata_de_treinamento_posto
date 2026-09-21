@@ -19,6 +19,7 @@ model User {
 
 model Course {
   id         Int        @id @default(autoincrement())
+  slug       String?    @unique
   titulo     String
   descricao  String
   conteudo   String
@@ -31,6 +32,7 @@ model Progress {
   id         Int      @id @default(autoincrement())
   userId     Int
   courseId   Int
+  lessonsCompleted Int @default(0)
   nota       Float?
   percentual Float    @default(0)
   status     String   @default("EM_ANDAMENTO")

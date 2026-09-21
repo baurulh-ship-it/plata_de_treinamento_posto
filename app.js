@@ -1,150 +1,77 @@
-const state = {
-  progress: Number(localStorage.getItem("regoProgress") || 68),
-  completed: JSON.parse(localStorage.getItem("regoCompleted") || "[]")
-};
-
-const modules = [
-  {id:"seguranca", icon:"!", title:"Segurança e prevenção", desc:"Procedimentos básicos para uma operação segura no posto.", duration:"12 min", progress:100, status:"Concluído"},
-  {id:"atendimento", icon:"♡", title:"Atendimento ao cliente", desc:"Boas práticas para oferecer um atendimento rápido e padronizado.", duration:"18 min", progress:72, status:"Em andamento"},
-  {id:"bombas", icon:"⛽", title:"Operação das bombas", desc:"Conheça a rotina de abastecimento e os cuidados durante a operação.", duration:"15 min", progress:40, status:"Em andamento"},
-  {id:"caixa", icon:"$", title:"Operação de caixa", desc:"Fluxo de pagamentos, conferência e encerramento do atendimento.", duration:"20 min", progress:0, status:"Não iniciado"}
-];
-
-const pageNames = {inicio:"Início", treinamentos:"Treinamentos", progresso:"Meu progresso", avaliacoes:"Avaliações", ajuda:"Ajuda"};
-
-const content = document.getElementById("content");
-const pageTitle = document.getElementById("pageTitle");
-const toast = document.getElementById("toast");
-
-function save() {
-  localStorage.setItem("regoProgress", state.progress);
-  localStorage.setItem("regoCompleted", JSON.stringify(state.completed));
+let modules = [];
+let state = {lessons:{},scores:{}};
+let user = null;
+let busy = false;
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function api(path,body,requiresAuth=true){
+  let response;
+  try {response=await fetch('/api'+path,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(15000)});}
+  catch {throw new Error('Não foi possível conectar. Verifique a conexão e tente novamente.');}
+  const data=await response.json().catch(()=>({erro:'O servidor retornou uma resposta inesperada.'}));
+  if(!response.ok){if(response.status===401&&requiresAuth){closeModal();showAuth();}throw new Error(data.erro||'Não foi possível concluir a operação.');}
+  return data;
 }
-function notify(message) {
-  toast.textContent = message;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2600);
+function applyProgress(row){const m=modules.find(m=>m.courseId===row.courseId);if(!m)return;state.lessons[m.id]=row.lessonsCompleted;if(row.nota!==null)state.scores[m.id]=Math.round(row.nota*10);}
+function modalError(error){const dialog=document.getElementById('learningDialog');if(!dialog){notify(error.message);return;}let box=dialog.querySelector('.request-error');if(!box){box=document.createElement('p');box.className='request-error';box.setAttribute('role','alert');dialog.appendChild(box);}box.textContent=error.message;}
+async function mutation(action){if(busy)return;busy=true;const buttons=[...document.querySelectorAll('#learningDialog button')];const disabled=buttons.map(b=>b.disabled);buttons.forEach(b=>b.disabled=true);try{await action();}catch(error){modalError(error);}finally{buttons.forEach((b,i)=>b.disabled=disabled[i]);busy=false;}}
+let currentPage='inicio', quiz=null, toastTimer;
+const content=document.getElementById('content');
+const names={inicio:'Início',treinamentos:'Treinamentos',progresso:'Meu progresso',avaliacoes:'Avaliações',ajuda:'Ajuda'};
+function readCount(m){return Math.min(m.lessons.length,Math.max(0,Number(state.lessons[m.id])||0));}
+function passed(m){return Number.isFinite(state.scores[m.id]) && state.scores[m.id]>=70;}
+function percent(m){return Math.round((readCount(m)+(passed(m)?1:0))/(m.lessons.length+1)*100);}
+function overall(){return modules.length?Math.round(modules.reduce((sum,m)=>sum+percent(m),0)/modules.length):0;}
+function notify(message){clearTimeout(toastTimer);const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');toastTimer=setTimeout(()=>el.classList.remove('show'),4000);}
+function bar(value){return `<div class="progress" role="progressbar" aria-label="Progresso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${value}"><div style="width:${value}%"></div></div>`;}
+function status(m){return percent(m)===100?'Concluído':percent(m)>0?'Em andamento':'Não iniciado';}
+function card(m,i){return `<article class="card module"><div class="module-top"><div class="module-icon">${m.icon}</div><span class="tag ${percent(m)===100?'done':''}">${status(m)}</span></div><small class="module-number">MÓDULO 0${i+1}</small><h3>${m.title}</h3><p>${m.desc}</p>${bar(percent(m))}<div class="progress-row"><span>${m.duration} min · ${m.lessons.length} aulas</span><b>${percent(m)}%</b></div><button class="btn btn-light course-action" onclick="openCourse('${m.id}')">${percent(m)===100?'Revisar módulo':'Acessar treinamento'} →</button></article>`;}
+function home(){const next=modules.find(m=>percent(m)<100)||modules[0];content.innerHTML=`<div class="section-head intro"><span>SUA JORNADA DE APRENDIZAGEM</span><span class="demo-label">Progresso salvo na sua conta</span></div><section class="hero"><div><div class="eyebrow">AUTO POSTO REGO & CIA</div><h1>Um bom atendimento<br>começa com preparo.</h1><p>Aprenda as rotinas do posto, pratique seus conhecimentos e acompanhe cada conquista.</p><button class="btn btn-primary hero-cta" onclick="openCourse('${next.id}')">${overall()?'Continuar aprendendo':'Começar minha jornada'} →</button></div><div class="hero-art" aria-hidden="true"><div class="pump"></div><span>PREPARO QUE FAZ<br>A DIFERENÇA.</span></div></section><div class="stats">${[['Progresso geral',overall()+'%','◔'],['Módulos concluídos',modules.filter(m=>percent(m)===100).length+'/'+modules.length,'✓'],['Conteúdo disponível',modules.reduce((sum,m)=>sum+m.duration,0)+' min','◷'],['Avaliações aprovadas',modules.filter(passed).length+'/'+modules.length,'★']].map(([label,value,icon])=>`<div class="card stat"><div><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div><div class="stat-icon">${icon}</div></div>`).join('')}</div><div class="section-head"><h2>Sua trilha de capacitação</h2><span>Do primeiro contato ao fechamento</span></div><div class="grid"><div class="modules">${modules.map(card).join('')}</div><aside class="card side-card"><span class="eyebrow">UM PASSO DE CADA VEZ</span><h3>Seu próximo objetivo</h3><div class="donut" style="--value:${overall()}%"><span>${overall()}%<small>da trilha</small></span></div><p>Leia as três aulas de cada módulo e alcance pelo menos 70% na avaliação para concluir.</p><div class="next-step"><strong>${next.title}</strong><p>${readCount(next)} de 3 aulas lidas</p></div><button class="btn btn-light course-action" onclick="navigate('progresso')">Acompanhar meu progresso →</button></aside></div>`;}
+function trainings(){content.innerHTML=heading('Treinamentos','Quatro módulos para desenvolver sua rotina profissional.')+`<div class="course-grid">${modules.map(card).join('')}</div>`;}
+function heading(title,desc){return `<div class="page-title"><div class="eyebrow">REGO TREINA</div><h1>${title}</h1><p>${desc}</p></div>`;}
+function progressPage(){content.innerHTML=heading('Meu progresso','Cada etapa concluída conta. Seu avanço fica salvo na sua conta.')+`<p class="report-owner">Colaborador: ${escapeHtml(user.nome)} · ${new Date().toLocaleDateString('pt-BR')}</p><div class="card table-card"><table><thead><tr><th>Módulo</th><th>Aulas lidas</th><th>Progresso</th><th>Melhor nota</th><th>Status</th></tr></thead><tbody>${modules.map(m=>`<tr><td>${m.title}</td><td>${readCount(m)}/3</td><td>${bar(percent(m))}${percent(m)}%</td><td>${Number.isFinite(state.scores[m.id])?state.scores[m.id]+'%':'—'}</td><td>${status(m)}</td></tr>`).join('')}</tbody></table></div><p class="footnote">As notas são de atividades introdutórias e não constituem certificação profissional.</p><button class="btn btn-primary" onclick="window.print()">Imprimir relatório</button>`;}
+function evaluations(){content.innerHTML=heading('Avaliações','Responda às três questões de cada módulo. Aprovação a partir de 70%.')+`<div class="course-grid">${modules.map(m=>`<article class="card module"><div class="module-icon">${m.icon}</div><h3>${m.title}</h3><p>${Number.isFinite(state.scores[m.id])?'Melhor resultado: '+state.scores[m.id]+'%':'Você ainda não fez esta avaliação.'}</p><button class="btn btn-primary" onclick="openQuiz('${m.id}')">${Number.isFinite(state.scores[m.id])?'Tentar novamente':'Iniciar avaliação'} →</button></article>`).join('')}</div>`;}
+function help(){content.innerHTML=heading('Como podemos ajudar?','Orientações para aproveitar sua jornada de aprendizagem.')+`<div class="help-grid">${[['Como concluo um módulo?','Leia as três aulas e obtenha pelo menos 70% na avaliação. Você pode refazer a avaliação; sua melhor nota fica salva.'],['Onde meu progresso fica salvo?','Seu progresso fica salvo na sua conta. Entre com o mesmo email para continuar em outro dispositivo conectado à plataforma.'],['Posso usar este conteúdo na operação?','O material é uma introdução. Os procedimentos precisam ser validados pelo responsável do posto e acompanhados pela capacitação exigida para cada atividade.'],['Preciso de ajuda com a rotina do posto','Procure o responsável pelo seu turno. Apresente sua dúvida e o módulo relacionado para receber orientação.']].map(([q,a])=>`<details class="card"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`;}
+function navigate(page){currentPage=names[page]?page:'inicio';document.getElementById('pageTitle').textContent=names[currentPage];document.querySelectorAll('.nav-item').forEach(b=>{b.classList.toggle('active',b.dataset.page===currentPage);b.setAttribute('aria-current',b.dataset.page===currentPage?'page':'false');});({inicio:home,treinamentos:trainings,progresso:progressPage,avaliacoes:evaluations,ajuda:help}[currentPage])();closeMenu();}
+function closeMenu(){document.getElementById('sidebar').classList.remove('open');document.getElementById('menuBtn').setAttribute('aria-expanded','false');document.getElementById('menuBackdrop').hidden=true;}
+let returnFocus;
+function showModal(html){const old=document.getElementById('learningDialog');if(old)old.remove();else returnFocus=document.activeElement;const dialog=document.createElement('dialog');dialog.id='learningDialog';dialog.className='modal';dialog.setAttribute('aria-labelledby','dialogTitle');dialog.innerHTML=`<button class="close" aria-label="Fechar" onclick="closeModal()">×</button>${html}`;document.body.appendChild(dialog);dialog.addEventListener('close',()=>{dialog.remove();returnFocus?.focus();});dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});dialog.showModal();}
+function closeModal(){document.getElementById('learningDialog')?.close();}
+function openCourse(id,index){const m=modules.find(m=>m.id===id);const step=index??Math.min(readCount(m),m.lessons.length-1);const lesson=m.lessons[step];showModal(`<div class="eyebrow">${m.title} · AULA ${step+1} DE 3</div><h2 id="dialogTitle">${lesson[0]}</h2>${bar(Math.round((step+1)/3*100))}<p class="lesson-copy">${lesson[1]}</p><div class="lesson-tip">Ao final, teste o que aprendeu na avaliação deste módulo.</div><div class="modal-actions"><button class="btn btn-light" ${step===0?'disabled':''} onclick="openCourse('${id}',${step-1})">← Anterior</button><button class="btn btn-primary" onclick="advanceLesson('${id}',${step})">${step===2?'Concluir leitura e avaliar':'Marcar como lida e avançar'} →</button></div>`);}
+async function advanceLesson(id,step){await mutation(async()=>{const m=modules.find(m=>m.id===id);const result=await api('/progress',{courseId:m.courseId,lessonIndex:step});applyProgress(result.progresso);navigate(currentPage);if(step<m.lessons.length-1)openCourse(id,step+1);else openQuiz(id);});}
+function openQuiz(id){quiz={id,index:0,answers:[]};renderQuestion();}
+function renderQuestion(){const m=modules.find(m=>m.id===quiz.id),q=m.quiz[quiz.index];showModal(`<div class="eyebrow">${m.title} · QUESTÃO ${quiz.index+1} DE ${m.quiz.length}</div><h2 id="dialogTitle">${q[0]}</h2><div class="answers">${q[1].map((a,i)=>`<button class="quiz-option" onclick="answer(${i})">${a}</button>`).join('')}</div><div id="quizResult" role="status"></div><div id="quizNext"></div>`);}
+function answer(choice){quiz.answers[quiz.index]=choice;document.querySelectorAll('.quiz-option').forEach((b,i)=>{b.classList.toggle('selected',i===choice);b.setAttribute('aria-pressed',String(i===choice));});document.getElementById('quizResult').textContent='Resposta selecionada. A correção será exibida ao finalizar.';const m=modules.find(m=>m.id===quiz.id);document.getElementById('quizNext').innerHTML=`<button class="btn btn-primary" onclick="nextQuestion()">${quiz.index===m.quiz.length-1?'Enviar e ver resultado':'Próxima questão'} →</button>`;}
+async function nextQuestion(){const m=modules.find(m=>m.id===quiz.id);if(quiz.index<m.quiz.length-1){quiz.index++;return renderQuestion();}await mutation(async()=>{const result=await api('/progress',{courseId:m.courseId,answers:quiz.answers});applyProgress(result.progresso);navigate(currentPage);const score=result.score;showModal(`<div class="eyebrow">AVALIAÇÃO SALVA NA SUA CONTA</div><h2 id="dialogTitle">${score>=70?'Muito bem!':'Continue praticando.'}</h2><div class="result-score">${score}%</div><p>Você acertou ${result.correct} de ${m.quiz.length} questões.</p><p>${score>=70?(readCount(m)===m.lessons.length?'Módulo concluído!':'Avaliação aprovada. Leia todas as aulas para concluir o módulo.'):'Revise o conteúdo e tente novamente. Sua melhor nota foi mantida.'}</p><div class="feedback-list">${result.feedback.map((f,i)=>`<p><strong>Questão ${i+1}: ${f.correct?'correta':'revisar'}</strong><br>${escapeHtml(f.explanation)}</p>`).join('')}</div><div class="modal-actions"><button class="btn btn-light" onclick="openCourse('${m.id}',0)">Revisar aulas</button><button class="btn btn-primary" onclick="closeModal()">Voltar à plataforma</button></div>`);});}
+document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.page)));
+document.getElementById('menuBtn').addEventListener('click',()=>{const open=document.getElementById('sidebar').classList.toggle('open');document.getElementById('menuBtn').setAttribute('aria-expanded',String(open));document.getElementById('menuBackdrop').hidden=!open;});
+document.getElementById('menuBackdrop').addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+document.getElementById('notificationBtn').addEventListener('click',()=>notify(modules.filter(m=>percent(m)<100).length+' módulos aguardam sua conclusão.'));
+document.getElementById('logoutBtn').addEventListener('click',logout);
+function showAuth(register=false){
+  user=null;modules=[];state={lessons:{},scores:{}};content.innerHTML='';closeMenu();
+  document.querySelector('.app-shell').hidden=true;
+  const host=document.getElementById('authScreen');host.hidden=false;
+  host.innerHTML=`<section class="auth-story"><div class="brand"><div class="brand-mark">R</div><strong>Rego Treina</strong></div><div><div class="eyebrow">AUTO POSTO REGO & CIA</div><h1>Seu próximo passo<br>começa aqui.</h1><p>Aprenda, pratique e leve mais preparo para cada atendimento.</p><div class="auth-benefits"><span>01 · Aulas para a rotina do posto</span><span>02 · Avaliações com feedback</span><span>03 · Evolução acompanhada na sua conta</span></div></div><small>Capacitação que acompanha você.</small></section><section class="auth-form-wrap"><form id="authForm" class="auth-form"><div class="eyebrow">BEM-VINDO AO REGO TREINA</div><h2>${register?'Crie sua conta':'Entre para continuar'}</h2><p>${register?'Cadastre-se como colaborador para iniciar a trilha.':'Acesse sua trilha e continue de onde parou.'}</p>${register?'<label>Nome completo<input name="nome" autocomplete="name" minlength="2" maxlength="100" required></label>':''}<label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label><label>Senha<input name="senha" type="password" autocomplete="${register?'new-password':'current-password'}" ${register?'minlength="8"':''} maxlength="72" required></label>${register?'<small>Use pelo menos 8 caracteres.</small>':''}<p id="authError" class="request-error" role="alert"></p><button class="btn btn-primary" type="submit">${register?'Criar conta e entrar':'Entrar'}</button><button class="btn btn-light" type="button" onclick="showAuth(${!register})">${register?'Já tenho uma conta':'Criar minha conta'}</button></form></section>`;
+  document.getElementById('authForm').addEventListener('submit',event=>submitAuth(event,register));
 }
-function progressBar(value) {
-  return `<div class="progress"><div style="width:${value}%"></div></div>`;
+async function submitAuth(event,register){event.preventDefault();const form=event.currentTarget;const button=form.querySelector('[type="submit"]');const data=Object.fromEntries(new FormData(form));button.disabled=true;form.querySelectorAll('button').forEach(b=>b.disabled=true);const errorBox=document.getElementById('authError');errorBox.textContent='';let created=false;
+  try{if(register){await api('/auth/register',data,false);created=true;}await api('/auth/login',{email:data.email,senha:data.senha},false);await boot();}
+  catch(error){if(created){showAuth();document.getElementById('authError').textContent='Conta criada. '+error.message+' Entre usando o email e a senha cadastrados.';}else errorBox.textContent=error.message;}
+  finally{form.querySelectorAll('button').forEach(b=>b.disabled=false);}
 }
-
-function home() {
-  content.innerHTML = `
-    <section class="hero">
-      <div>
-        <div class="eyebrow">Auto Posto Rego & CIA • Pederneiras</div>
-        <h1>Olá, Rafael! 👋</h1>
-        <p>Continue sua capacitação e aprenda as rotinas do posto de forma simples, organizada e no seu ritmo.</p>
-        <div style="margin-top:20px"><button class="btn btn-primary" onclick="openCourse('atendimento')">Continuar treinamento →</button></div>
-      </div>
-      <div class="hero-art"><div class="pump"></div></div>
-    </section>
-
-    <div class="stats">
-      <div class="card stat"><div><div class="stat-label">Progresso geral</div><div class="stat-value">${state.progress}%</div></div><div class="stat-icon">◔</div></div>
-      <div class="card stat"><div><div class="stat-label">Módulos concluídos</div><div class="stat-value">${state.completed.length || 1}/4</div></div><div class="stat-icon">✓</div></div>
-      <div class="card stat"><div><div class="stat-label">Tempo de estudo</div><div class="stat-value">1h 12m</div></div><div class="stat-icon">◷</div></div>
-      <div class="card stat"><div><div class="stat-label">Avaliações</div><div class="stat-value">2/3</div></div><div class="stat-icon">★</div></div>
-    </div>
-
-    <div class="section-head"><h2>Continue aprendendo</h2><span>4 módulos disponíveis</span></div>
-    <div class="grid">
-      <div class="modules">${modules.slice(0,4).map(m=>moduleCard(m)).join("")}</div>
-      <div class="card side-card">
-        <h3>Seu desempenho</h3>
-        <div class="donut"></div>
-        <div class="legend">
-          <span><b>Concluído</b><strong>68%</strong></span>
-          <span><b>Em andamento</b><strong>22%</strong></span>
-          <span><b>Pendente</b><strong>10%</strong></span>
-        </div>
-        <button class="btn btn-light" style="width:100%;margin-top:17px" onclick="navigate('progresso')">Ver relatório completo</button>
-      </div>
-    </div>
-  `;
+async function logout(){if(busy)return;const button=document.getElementById('logoutBtn');button.disabled=true;try{await api('/auth/logout',{},false);closeModal();showAuth();}catch(error){notify(error.message);}finally{button.disabled=false;}}
+async function boot(){
+  const host=document.getElementById('authScreen');document.querySelector('.app-shell').hidden=true;host.hidden=false;host.innerHTML='<div class="loading-panel" role="status">Carregando sua conta…</div>';
+  if(location.protocol==='file:'){host.innerHTML='<div class="loading-panel"><h1>Inicie a plataforma</h1><p>Execute npm run setup e npm start na pasta do projeto. Depois abra http://localhost:3000 no navegador.</p></div>';return;}
+  try{
+    const session=await api('/auth/me');
+    const [courses,progress]=await Promise.all([api('/courses'),api('/progress/me')]);
+    if(!courses.length)throw new Error('Os treinamentos ainda não foram preparados. Peça ao responsável para executar a configuração inicial.');
+    modules=courses.map(m=>({...m,title:escapeHtml(m.title),desc:escapeHtml(m.desc),icon:escapeHtml(m.icon),lessons:m.lessons.map(l=>l.map(escapeHtml)),quiz:m.quiz.map(q=>[escapeHtml(q[0]),q[1].map(escapeHtml)])}));
+    state={lessons:{},scores:{}};progress.forEach(applyProgress);user=session.usuario;
+    document.querySelector('.mini-profile strong').textContent=user.nome;document.querySelector('.mini-profile span').textContent=user.funcao==='GESTOR'?'Gestor':'Colaborador';document.querySelector('.profile-chip>span').textContent=user.nome.split(' ')[0];document.querySelectorAll('.avatar').forEach(el=>el.textContent=user.nome.split(/\s+/).slice(0,2).map(n=>n[0]).join('').toUpperCase());
+    host.hidden=true;document.querySelector('.app-shell').hidden=false;navigate('inicio');
+  }catch(error){if(document.getElementById('authForm'))return;host.innerHTML=`<div class="loading-panel"><h1>Não foi possível carregar sua conta</h1><p role="alert">${escapeHtml(error.message)}</p><button class="btn btn-primary" onclick="boot()">Tentar novamente</button><button class="btn btn-light" onclick="logout()">Sair da conta</button></div>`;}
 }
-function moduleCard(m) {
-  return `<article class="card module" onclick="openCourse('${m.id}')">
-    <div class="module-top"><div class="module-icon">${m.icon}</div><span class="tag">${m.status}</span></div>
-    <h3>${m.title}</h3><p>${m.desc}</p>${progressBar(m.progress)}
-    <div class="progress-row"><span>${m.duration}</span><b>${m.progress}%</b></div>
-  </article>`;
-}
-function trainings() {
-  content.innerHTML = `<div class="page-title"><h1>Treinamentos</h1><p>Aprenda as principais rotinas do posto por módulos curtos e interativos.</p></div>
-  <div class="course-grid">${modules.map(m=>`<div class="card course"><div class="cover">${m.icon}</div><h3>${m.title}</h3><p>${m.desc}</p><div class="meta"><span>${m.duration}</span><b>${m.progress}%</b></div>${progressBar(m.progress)}<button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="openCourse('${m.id}')">${m.progress===100?'Revisar módulo':'Acessar módulo'}</button></div>`).join("")}</div>`;
-}
-function progressPage() {
-  content.innerHTML = `<div class="page-title"><h1>Meu progresso</h1><p>Acompanhe sua evolução e veja quais conteúdos precisam de atenção.</p></div>
-  <div class="grid"><div class="card table-card"><h3 style="margin:0 0 12px">Progresso por módulo</h3>
-  <table><thead><tr><th>Módulo</th><th>Progresso</th><th>Status</th></tr></thead><tbody>
-  ${modules.map(m=>`<tr><td><strong>${m.title}</strong></td><td style="min-width:170px">${progressBar(m.progress)}<small style="color:var(--muted)">${m.progress}%</small></td><td><span class="status ${m.progress===100?'done':'pending'}">${m.status}</span></td></tr>`).join("")}
-  </tbody></table></div>
-  <div class="card side-card"><h3>Resumo</h3><div class="donut"></div><p style="font-size:11px;color:var(--muted);line-height:1.6;text-align:center">Seu progresso é salvo automaticamente neste dispositivo. Na versão com backend, esses dados poderão ser sincronizados pela API.</p></div></div>`;
-}
-function evaluations() {
-  content.innerHTML = `<div class="page-title"><h1>Avaliações</h1><p>Teste seus conhecimentos e acompanhe seu desempenho.</p></div>
-  <div class="card table-card"><table><thead><tr><th>Avaliação</th><th>Questões</th><th>Nota</th><th>Status</th><th></th></tr></thead><tbody>
-  <tr><td><strong>Segurança e prevenção</strong></td><td>10</td><td>9,0</td><td><span class="status done">Concluída</span></td><td><button class="btn btn-light" onclick="openQuiz()">Refazer</button></td></tr>
-  <tr><td><strong>Atendimento ao cliente</strong></td><td>8</td><td>—</td><td><span class="status pending">Pendente</span></td><td><button class="btn btn-primary" onclick="openQuiz()">Iniciar</button></td></tr>
-  </tbody></table></div>`;
-}
-function help() {
-  content.innerHTML = `<div class="page-title"><h1>Central de ajuda</h1><p>Encontre orientações rápidas para usar a plataforma.</p></div>
-  <div class="grid"><div class="card side-card"><h3>Como funciona?</h3><div class="list">
-  <div class="list-item"><div class="bullet">1</div><div><strong>Escolha um módulo</strong><small>Acesse um dos treinamentos disponíveis.</small></div></div>
-  <div class="list-item"><div class="bullet">2</div><div><strong>Estude o conteúdo</strong><small>Leia as instruções e avance pelo material.</small></div></div>
-  <div class="list-item"><div class="bullet">3</div><div><strong>Faça a avaliação</strong><small>Responda ao questionário para fixar o conteúdo.</small></div></div>
-  <div class="list-item"><div class="bullet">4</div><div><strong>Acompanhe seu progresso</strong><small>Seu percentual é atualizado automaticamente.</small></div></div>
-  </div></div>
-  <div class="card side-card"><h3>Precisa de suporte?</h3><p style="font-size:12px;line-height:1.6;color:var(--muted)">Em uma versão integrada ao backend, este espaço pode receber abertura de chamados e contato com gestores.</p><button class="btn btn-primary" onclick="notify('Solicitação de suporte registrada!')">Solicitar suporte</button></div></div>`;
-}
-
-function navigate(page) {
-  document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active", b.dataset.page===page));
-  pageTitle.textContent = pageNames[page];
-  ({inicio:home, treinamentos:trainings, progresso:progressPage, avaliacoes:evaluations, ajuda:help}[page] || home)();
-  document.getElementById("sidebar").classList.remove("open");
-}
-document.querySelectorAll(".nav-item").forEach(btn=>btn.addEventListener("click",()=>navigate(btn.dataset.page)));
-
-function openCourse(id) {
-  const m = modules.find(x=>x.id===id);
-  const overlay = document.createElement("div");
-  overlay.className="modal-backdrop show";
-  overlay.id="courseModal";
-  overlay.innerHTML=`<div class="modal">
-    <div class="modal-head"><div><div class="eyebrow" style="color:var(--primary)">MÓDULO DE TREINAMENTO</div><h2 style="margin:6px 0;font-size:20px">${m.title}</h2></div><button class="close" onclick="document.getElementById('courseModal').remove()">×</button></div>
-    <p style="font-size:12px;line-height:1.7;color:var(--muted)">Este protótipo demonstra o fluxo de aprendizagem. O conteúdo pode ser substituído pelos materiais oficiais do posto e posteriormente carregado pela API REST.</p>
-    <div class="card" style="padding:15px;margin:16px 0;background:#f7faff"><strong style="font-size:12px">Conteúdo da aula</strong><p style="font-size:11px;color:var(--muted);line-height:1.6;margin-bottom:0">1. Introdução à rotina<br>2. Procedimentos passo a passo<br>3. Cuidados e boas práticas<br>4. Checklist de conclusão</p></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-light" onclick="document.getElementById('courseModal').remove()">Fechar</button><button class="btn btn-primary" onclick="completeModule('${id}')">Marcar como concluído</button></div>
-  </div>`;
-  document.body.appendChild(overlay);
-}
-function completeModule(id) {
-  if(!state.completed.includes(id)) state.completed.push(id);
-  const m=modules.find(x=>x.id===id); m.progress=100; m.status="Concluído";
-  state.progress=Math.min(100, Math.round(modules.reduce((a,x)=>a+x.progress,0)/modules.length));
-  save(); document.getElementById("courseModal").remove(); notify("Módulo concluído! Seu progresso foi atualizado."); home();
-}
-function openQuiz() {
-  const overlay=document.createElement("div"); overlay.className="modal-backdrop show"; overlay.id="quizModal";
-  overlay.innerHTML=`<div class="modal"><div class="modal-head"><div><div class="eyebrow" style="color:var(--primary)">AVALIAÇÃO</div><h2 style="margin:6px 0;font-size:20px">Atendimento ao cliente</h2></div><button class="close" onclick="document.getElementById('quizModal').remove()">×</button></div>
-  <p style="font-size:12px;color:var(--muted)">Qual atitude melhor contribui para um atendimento padronizado?</p>
-  <button class="quiz-option" onclick="answer(this,false)">Ignorar a solicitação para agilizar a fila.</button>
-  <button class="quiz-option" onclick="answer(this,true)">Ouvir o cliente, seguir o procedimento e confirmar a solicitação.</button>
-  <button class="quiz-option" onclick="answer(this,false)">Fazer o atendimento sem conferir as informações.</button>
-  <div id="quizResult" style="margin-top:15px;font-size:12px;font-weight:700"></div></div>`;
-  document.body.appendChild(overlay);
-}
-function answer(el, correct) {
-  document.querySelectorAll(".quiz-option").forEach(b=>b.disabled=true);
-  el.classList.add(correct?"correct":"wrong");
-  document.getElementById("quizResult").textContent=correct?"Resposta correta! Muito bem.":"Resposta incorreta. Revise o módulo e tente novamente.";
-  if(correct) notify("Avaliação concluída com sucesso!");
-}
-document.getElementById("menuBtn").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
-document.getElementById("notificationBtn").addEventListener("click",()=>notify("Você não possui novas notificações."));
-document.getElementById("logoutBtn").addEventListener("click",()=>notify("Sessão encerrada (simulação)."));
-navigate("inicio");
+boot();
