@@ -1,41 +1,38 @@
-### Health
-GET http://localhost:3000/api/health
-
-### Login gestor
-POST http://localhost:3000/api/auth/login
-Content-Type: application/json
-
-{
-  "email": "gestor@posto.com",
-  "senha": "123456"
-}
-
-### Cadastro colaborador
+### Cadastre uma conta de colaborador
 POST http://localhost:3000/api/auth/register
 Content-Type: application/json
 
-{
-  "nome": "João da Silva",
-  "email": "joao@email.com",
-  "senha": "123456",
-  "funcao": "COLABORADOR"
-}
+{"nome":"Colaborador de teste","email":"colaborador@example.com","senha":"troque-esta-senha"}
 
-### Cursos
-GET http://localhost:3000/api/courses
-Authorization: Bearer SEU_TOKEN
-
-### Salvar progresso
-POST http://localhost:3000/api/progress
-Authorization: Bearer SEU_TOKEN
+### Entre; o cliente HTTP precisa guardar o cookie rego_session
+POST http://localhost:3000/api/auth/login
 Content-Type: application/json
 
-{
-  "courseId": 1,
-  "nota": 9,
-  "percentual": 100
-}
+{"email":"colaborador@example.com","senha":"troque-esta-senha"}
 
-### Meu progresso
+### Perfil autenticado
+GET http://localhost:3000/api/auth/me
+
+### Cursos (utilize courseId retornado nas próximas requisições)
+GET http://localhost:3000/api/courses
+
+### Marque a primeira aula como lida
+POST http://localhost:3000/api/progress
+Content-Type: application/json
+
+{"courseId":1,"lessonIndex":0}
+
+### Envie as escolhas da avaliação: três índices de alternativa
+POST http://localhost:3000/api/progress
+Content-Type: application/json
+
+{"courseId":1,"answers":[0,0,0]}
+
+### Histórico da conta
 GET http://localhost:3000/api/progress/me
-Authorization: Bearer SEU_TOKEN
+
+### Saia da conta
+POST http://localhost:3000/api/auth/logout
+Content-Type: application/json
+
+{}

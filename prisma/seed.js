@@ -1,52 +1,12 @@
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
-
-const prisma = new PrismaClient();
-
-async function main() {
-  const senha = await bcrypt.hash("123456", 10);
-
-  const gestor = await prisma.user.upsert({
-    where: { email: "gestor@posto.com" },
-    update: {},
-    create: {
-      nome: "Gestor do Posto",
-      email: "gestor@posto.com",
-      senha,
-      funcao: "GESTOR"
-    }
-  });
-
-  const cursos = [
-    {
-      titulo: "Atendimento ao Cliente",
-      descricao: "Boas práticas de atendimento e comunicação com clientes.",
-      conteudo: "Apresentação, abordagem, comunicação, resolução de dúvidas e encerramento do atendimento.",
-      duracaoMin: 30
-    },
-    {
-      titulo: "Segurança no Posto",
-      descricao: "Procedimentos básicos de segurança e prevenção de acidentes.",
-      conteudo: "Uso correto dos equipamentos, prevenção de incêndios, condutas de segurança e procedimentos operacionais.",
-      duracaoMin: 45
-    },
-    {
-      titulo: "Operação de Bombas",
-      descricao: "Orientações sobre operação das bombas e rotina de abastecimento.",
-      conteudo: "Identificação do combustível, abastecimento, conferência e procedimentos de encerramento.",
-      duracaoMin: 35
-    }
-  ];
-
-  for (const curso of cursos) {
-    await prisma.course.create({ data: curso });
+require('dotenv').config();
+const prisma = require('../src/lib/prisma');
+const catalog = require('../src/data/catalog');
+async function seed() {
+  for (const m of catalog) {
+    const data = {titulo:m.title, descricao:m.desc, conteudo:JSON.stringify({icon:m.icon,lessons:m.lessons,quiz:m.quiz}), duracaoMin:m.duration};
+    await prisma.course.upsert({where:{slug:m.id},update:data,create:{slug:m.id,...data}});
   }
-
-  console.log("Seed concluído.");
-  console.log("Gestor:", gestor.email);
-  console.log("Senha:", "123456");
+  console.log('Quatro módulos preparados. Nenhuma conta padrão foi criada.');
 }
-
-main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+if(require.main===module) seed().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(()=>prisma.$disconnect());
+module.exports=seed;

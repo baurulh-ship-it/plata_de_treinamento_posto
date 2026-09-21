@@ -8,7 +8,11 @@
     "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "setup": "node scripts/setup.js",
+    "test": "node --test tests/api.test.cjs",
+    "prisma:deploy": "prisma migrate deploy",
+    "test:browser": "node tests/presentation.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
@@ -20,6 +24,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.10",
+    "playwright": "^1.63.0",
     "prisma": "^6.15.0"
   }
 }
